@@ -2,7 +2,9 @@ Metadata-Version: 2.4
 Name: todo-py
 Version: 0.1.3
 Summary: A search utility for TODO statements in codebases.
-Requires-Python: >=3.14
+Author: Simon Danielsson
+License: MIT
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file

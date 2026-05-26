@@ -5,4 +5,5 @@ src/todo.py
 src/todo_py.egg-info/PKG-INFO
 src/todo_py.egg-info/SOURCES.txt
 src/todo_py.egg-info/dependency_links.txt
+src/todo_py.egg-info/entry_points.txt
 src/todo_py.egg-info/top_level.txt
