@@ -10,7 +10,9 @@
   
 <p align="center">
   <a href="#info">Info</a> •
-  <a href="#usage">Usage</a> •
+  <a href="#install">Install</a> •
+  <a href="#usage">Usage</a>
+  <br>
   <a href="#screenshots">Screenshots</a> •
   <a href="#license">License</a>
 </p>  
@@ -26,6 +28,26 @@
 ### Requirements
 - Python (3.10+)
 - Git
+  
+---
+<div id="install"></div>
+## Install
+  
+### Download todo.py from the repo
+  
+``` terminal
+curl -O https://raw.githubusercontent.com/simon-danielsson/todo.py/refs/heads/main/src/todo.py
+chmod +x todo.py
+mv todo.py ~/my_scripts
+```
+  
+### Add a bash alias
+  
+``` bash
+#!/usr/bin/env bash
+
+alias todo="$HOME/my_scripts/todo.py"
+```
   
 ---
 <div id="usage"></div>
