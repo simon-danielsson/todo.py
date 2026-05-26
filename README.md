@@ -66,7 +66,7 @@ Options:
 ---
 <div id="screenshots"></div>
    
-![todo](./media/screenshot.png)
+![todo](./media/screen.png)
     
 ---
 <div id="license"></div>
