@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-todo.py v0.1.4
+todo.py v0.1.5
 https://github.com/simon-danielsson/todo.py
 
 Copyright © 2026 Simon Danielsson
