@@ -23,7 +23,6 @@
 ### Features
 - User-configurable keyword search term (default: `TODO:`)
 - Automatically track how long a task has been ignored
-- Nerdfont support
   
 ### Requirements
 - Python (3.10+)
