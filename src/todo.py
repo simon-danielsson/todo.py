@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
-import stat
+import stat, subprocess, sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from datetime import datetime
-import subprocess
+from datetime import datetime, timedelta
 from typing import Generator
 
 # constants -------------------------------------------------------------------
-
-ANSI_BLU: str = "\033[1;34m"
-ANSI_RST: str = "\033[0m"
 
 FALLBACK_DATETIME: datetime = datetime.now()
 CD = Path.cwd()
 
 BLACKLIST: list[str] = [
         "LICENSE",
+        "CMakeFiles/",
+        ".dSYM",
         "Cargo",
         "package",
         "aarch",
@@ -46,7 +44,7 @@ BLACKLIST: list[str] = [
 
 # program ---------------------------------------------------------------------
 
-def get_time_created(f: Path, l: int) -> datetime | None:
+def get_time_created(f: Path, l: int) -> timedelta | None:
     if l < 1:
         l = 1
     try:
@@ -68,28 +66,50 @@ def get_time_created(f: Path, l: int) -> datetime | None:
         return None
     except subprocess.CalledProcessError:
         return None
+    except UnicodeDecodeError:
+        return None
     for line in process.stdout.splitlines():
         if line.startswith("author-time "):
-            return datetime.fromtimestamp(int(line.split()[1]))
+            created = datetime.fromtimestamp(int(line.split()[1]))
+            return datetime.now() - created
 
 @dataclass
 class Todo:
     path: Path
     line: int
+    created: timedelta = field(default=timedelta(0))
     found_created: bool = False
-    created: datetime = field(default=FALLBACK_DATETIME)
     content_lines: list[str] = field(default_factory=list)
 
-    def print(self) -> None:
+    def print(self, icons: bool, colors: bool) -> None:
+        ansi_blue: str = "\033[1;34m"
+        ansi_rese: str = "\033[0m"
+        if not colors:
+            ansi_blue = ansi_rese
+        months = self.created.days // 30
+        days = self.created.days % 30
+        file_p = "File"
+        comm_p = "Commit"
+        month_spacing = " "
+        path_spacing = "   "
+        if icons:
+            month_spacing = " "
+            path_spacing = " "
+            file_p = ""
+            comm_p = "󰘬"
         print(
-                f"\n{ANSI_BLU}File{ANSI_RST} {self.path.relative_to(Path.cwd())}:{self.line}"
+                f"\n{ansi_blue}◎ {file_p}{ansi_rese}{path_spacing}{self.path.relative_to(Path.cwd())}:{self.line}"
                 )
         if self.found_created:
-            print(
-                    f"{ANSI_BLU}Date{ANSI_RST} {self.created.date()} {self.created.time()}"
-                    )
+            if months < 1:
+                print(f"{ansi_blue}║ {comm_p}{ansi_rese}{month_spacing}{days} days ago")
+            else:
+                print(
+                        f"{ansi_blue}║ {comm_p}{ansi_rese}{month_spacing}{months} month(s) and {days} days ago"
+                        )
+        print(f"{ansi_blue}║")
         for l in self.content_lines:
-            print(f"{ANSI_BLU}┆{ANSI_RST} {l}")
+            print(f"{ansi_blue}║{ansi_rese} {l}")
 
     def __post_init__(self) -> None:
         created = get_time_created(f=self.path, l=self.line)
@@ -97,10 +117,10 @@ class Todo:
             self.found_created = True
             self.created = created
 
-def scan_file(f: Path) -> Generator[Todo]:
+def scan_file(f: Path, kw: str) -> Generator[Todo]:
     lines = f.open(errors="ignore", encoding="utf-8").readlines()
     for i, l in enumerate(lines):
-        if "TODO:" in l:
+        if kw in l:
             td: Todo = Todo(line=i, path=f)
             cl = i
             while cl < len(lines):
@@ -126,19 +146,62 @@ def should_skip(f: Path) -> bool:
         return True
     return False
 
+@dataclass
+class Args:
+    help: bool = field(default=False)
+    icons: bool = field(default=False)
+    colors: bool = field(default=True)
+    keyword: str = "TODO:"
+    target: Path = field(default=Path.cwd())
+
+    def __post_init__(self) -> None:
+        if len(sys.argv) <= 1:
+            return
+        i = 1
+        while i < len(sys.argv):
+            match sys.argv[i].strip():
+                case "-i":
+                    self.icons = True
+                case "-c":
+                    self.colors = False
+                case "-k":
+                    try:
+                        if sys.argv[i + 1].startswith("-"):
+                            print('No keyword added after "-k" flag.')
+                            exit(1)
+                        self.keyword = sys.argv[i + 1].strip()
+                    except Exception:
+                        print('No keyword added after "-k" flag.')
+                        exit(1)
+                case "help":
+                    self.help = True
+            i += 1
+        path = Path(sys.argv[-1].strip())
+        if path.exists():
+            self.target = path.resolve()
+
+def help() -> None:
+    print("help")
+
 def main() -> None:
-    files = [path for path in CD.rglob("*") if not path.is_dir()]
+    args = Args()
+    if args.help:
+        help()
+        return
+
+    files = [path for path in args.target.rglob("*") if not path.is_dir()]
+
     todo_items: list[Todo] = []
     for f in files:
         if should_skip(f):
             continue
-        todo_items += list(scan_file(f))
+        todo_items += list(scan_file(f, args.keyword))
 
     if len(todo_items) < 1:
         print("No TODO items were found.")
         return
     for i in todo_items:
-        i.print()
+        i.print(icons=args.icons, colors=args.colors)
 
 if __name__ == "__main__":
     main()
