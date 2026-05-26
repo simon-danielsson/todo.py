@@ -160,9 +160,9 @@ class Args:
         i = 1
         while i < len(sys.argv):
             match sys.argv[i].strip():
-                case "-i":
+                case "-i" | "--icons":
                     self.icons = True
-                case "-c":
+                case "-c" | "--no-color":
                     self.colors = False
                 case "-k":
                     try:
@@ -173,7 +173,7 @@ class Args:
                     except Exception:
                         print('No keyword added after "-k" flag.')
                         exit(1)
-                case "help":
+                case "--help" | "-h":
                     self.help = True
             i += 1
         path = Path(sys.argv[-1].strip())
@@ -181,7 +181,15 @@ class Args:
             self.target = path.resolve()
 
 def help() -> None:
-    print("help")
+    print(
+            "Usage: todo [OPTIONS]\n"
+            "\n"
+            "Options:\n"
+            '-k  <keyword>    Keyword to search for (default: "TODO:")\n'
+            "-i, --icons      Enable nerdfont icons (default: disabled)\n"
+            "-c, --no-color   Disable color output (default: enabled)\n"
+            "-h, --help       Show this help message and exit"
+            )
 
 def main() -> None:
     args = Args()
