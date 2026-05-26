@@ -60,7 +60,6 @@ Usage: todo [OPTIONS]
 
 Options:
 -k  <keyword>    Keyword to search for (default: "TODO:")
--i, --icons      Enable nerdfont icons (default: disabled)
 -c, --no-color   Disable color output (default: enabled)
 -h, --help       Show this help message and exit
 ```

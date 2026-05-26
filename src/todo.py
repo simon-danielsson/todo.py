@@ -94,35 +94,40 @@ class Todo:
     found_created: bool = False
     content_lines: list[str] = field(default_factory=list)
 
-    def print(self, icons: bool, colors: bool) -> None:
+    def print(self, args: Args) -> None:
         ansi_blue: str = "\033[1;34m"
+        ansi_key: str = "\033[4;34m"
         ansi_rese: str = "\033[0m"
-        if not colors:
-            ansi_blue = ansi_rese
+        if not args.colors:
+            ansi_blue = ""
+            ansi_key = ""
+            ansi_rese = ""
         months = self.created.days // 30
         days = self.created.days % 30
-        file_p = "File"
-        comm_p = "Commit"
-        month_spacing = " "
-        path_spacing = "   "
-        if icons:
-            month_spacing = " "
-            path_spacing = " "
-            file_p = ""
-            comm_p = "󰘬"
-        print(
-                f"\n{ansi_blue}◎ {file_p}{ansi_rese}{path_spacing}{self.path.relative_to(Path.cwd())}:{self.line}"
-                )
+        print(f"{ansi_blue}")
+        created_text = ""
         if self.found_created:
-            if months < 1:
-                print(f"{ansi_blue}║ {comm_p}{ansi_rese}{month_spacing}{days} days ago")
+            if months == 0 and days == 0:
+                created_text = "@ today"
+            elif months < 1:
+                created_text = f"@ {days}d ago"
             else:
-                print(
-                        f"{ansi_blue}║ {comm_p}{ansi_rese}{month_spacing}{months} month(s) and {days} days ago"
-                        )
-        print(f"{ansi_blue}║")
+                created_text = f"@ {months}mo {days}d ago"
+
+        print(
+                f"./{self.path.relative_to(Path.cwd())}:{self.line} {created_text}{ansi_rese}"
+                )
+
+        preceding_space_to_cut: int = 0
+
         for l in self.content_lines:
-            print(f"{ansi_blue}║{ansi_rese} {l}")
+            i = l.find(args.keyword)
+            if i == -1:
+                continue
+            i_end = i + len(args.keyword)
+            l = l[:i] + ansi_key + l[i:i_end] + ansi_rese + l[i_end:]
+            preceding_space_to_cut = len(l) - len(l.lstrip(" "))
+            print(f"    {l[preceding_space_to_cut:]}")
 
     def __post_init__(self) -> None:
         created = get_time_created(f=self.path, l=self.line)
@@ -162,7 +167,6 @@ def should_skip(f: Path) -> bool:
 @dataclass
 class Args:
     help: bool = field(default=False)
-    icons: bool = field(default=False)
     colors: bool = field(default=True)
     keyword: str = "TODO:"
     target: Path = field(default=Path.cwd())
@@ -173,11 +177,9 @@ class Args:
         i = 1
         while i < len(sys.argv):
             match sys.argv[i].strip():
-                case "-i" | "--icons":
-                    self.icons = True
-                case "-c" | "--no-color":
+                case "-n" | "--no-color":
                     self.colors = False
-                case "-k":
+                case "-k" | "--key":
                     try:
                         if sys.argv[i + 1].startswith("-"):
                             print('No keyword added after "-k" flag.')
@@ -188,6 +190,9 @@ class Args:
                         exit(1)
                 case "--help" | "-h":
                     self.help = True
+                case _:
+                    return
+
             i += 1
         path = Path(sys.argv[-1].strip())
         if path.exists():
@@ -198,10 +203,9 @@ def help() -> None:
             "Usage: todo [OPTIONS]\n"
             "\n"
             "Options:\n"
-            '-k  <keyword>    Keyword to search for (default: "TODO:")\n'
-            "-i, --icons      Enable nerdfont icons (default: disabled)\n"
-            "-c, --no-color   Disable color output (default: enabled)\n"
-            "-h, --help       Show this help message and exit"
+            '-k, --key <keyword>    Keyword to search for (default: "TODO:")\n'
+            "-n, --no-color         Disable color output (default: enabled)\n"
+            "-h, --help             Show this help message and exit"
             )
 
 def main() -> None:
@@ -219,10 +223,10 @@ def main() -> None:
         todo_items += list(scan_file(f, args.keyword))
 
     if len(todo_items) < 1:
-        print("No TODO items were found.")
+        print("No tasks were found.")
         return
     for i in todo_items:
-        i.print(icons=args.icons, colors=args.colors)
+        i.print(args=args)
 
 if __name__ == "__main__":
     main()
