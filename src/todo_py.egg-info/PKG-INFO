@@ -2,8 +2,9 @@ Metadata-Version: 2.4
 Name: todo-py
 Version: 0.1.3
 Summary: A search utility for TODO statements in codebases.
-Author: Simon Danielsson
-License: MIT
+Author-email: Simon Danielsson <contact@simondanielsson.se>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/simon-danielsson/todo.py
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
