@@ -68,6 +68,7 @@ Options:
   
 ## Screenshots
    
+![todo2](./media/screen2.png)
 ![todo](./media/screen.png)
     
 ---
