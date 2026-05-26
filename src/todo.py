@@ -2,7 +2,7 @@
 
 import stat
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 import subprocess
 from typing import Generator
@@ -12,10 +12,23 @@ from typing import Generator
 ANSI_BLU: str = "\033[1;34m"
 ANSI_RST: str = "\033[0m"
 
+FALLBACK_DATETIME: datetime = datetime.now()
+CD = Path.cwd()
+
 BLACKLIST: list[str] = [
         "LICENSE",
         "Cargo",
+        "package",
+        "aarch",
+        "x86_64",
+        "target/",
         "nob.h",
+        ".png",
+        ".jpg",
+        ".gif",
+        ".zip",
+        ".gz",
+        ".psd",
         ".a",
         ".toml",
         ".TAG",
@@ -33,21 +46,9 @@ BLACKLIST: list[str] = [
 
 # program ---------------------------------------------------------------------
 
-@dataclass
-class Todo:
-    path: Path
-    line: int
-    created_date_found: bool
-    created: datetime
-    content_lines: list[str]
-
-def collect_files_in_cd() -> list[Path]:
-    CD = Path.cwd()
-    return [path for path in CD.rglob("*") if not path.is_dir()]
-
 def get_time_created(f: Path, l: int) -> datetime | None:
-    if l == 0:
-        l += 1
+    if l < 1:
+        l = 1
     try:
         process = subprocess.run(
                 [
@@ -61,33 +62,46 @@ def get_time_created(f: Path, l: int) -> datetime | None:
                 capture_output=True,
                 text=True,
                 check=True,
-                # timeout=0.5,
+                timeout=0.01,
                 )
+    except subprocess.TimeoutExpired:
+        return None
     except subprocess.CalledProcessError:
         return None
     for line in process.stdout.splitlines():
         if line.startswith("author-time "):
-            timestamp = int(line.split()[1])
-            return datetime.fromtimestamp(timestamp)
+            return datetime.fromtimestamp(int(line.split()[1]))
+
+@dataclass
+class Todo:
+    path: Path
+    line: int
+    found_created: bool = False
+    created: datetime = field(default=FALLBACK_DATETIME)
+    content_lines: list[str] = field(default_factory=list)
+
+    def print(self) -> None:
+        print(
+                f"\n{ANSI_BLU}File{ANSI_RST} {self.path.relative_to(Path.cwd())}:{self.line}"
+                )
+        if self.found_created:
+            print(
+                    f"{ANSI_BLU}Date{ANSI_RST} {self.created.date()} {self.created.time()}"
+                    )
+        for l in self.content_lines:
+            print(f"{ANSI_BLU}┆{ANSI_RST} {l}")
+
+    def __post_init__(self) -> None:
+        created = get_time_created(f=self.path, l=self.line)
+        if created != None:
+            self.found_created = True
+            self.created = created
 
 def scan_file(f: Path) -> Generator[Todo]:
-    l = 0
-    it = f.open(errors="ignore", encoding="utf-8")
-    lines = it.readlines()
+    lines = f.open(errors="ignore", encoding="utf-8").readlines()
     for i, l in enumerate(lines):
         if "TODO:" in l:
-            # print(f"found: {f.name}")
-            td: Todo = Todo(
-                    line=i,
-                    content_lines=[],
-                    path=f,
-                    created_date_found=False,
-                    created=datetime.now(),
-                    )
-            created = get_time_created(f=f, l=i)
-            if created is not None:
-                td.created_date_found = True
-                td.created = created
+            td: Todo = Todo(line=i, path=f)
             cl = i
             while cl < len(lines):
                 if lines[cl].strip() != "":
@@ -96,40 +110,35 @@ def scan_file(f: Path) -> Generator[Todo]:
                     continue
                 break
             yield td
-    it.close()
 
-def print_todo(t: list[Todo]) -> None:
-    if len(t) < 1:
-        print("No TODO items were found.")
-        return
-    for i in t:
-        print(f"\n{ANSI_BLU}File{ANSI_RST} {i.path.relative_to(Path.cwd())}:{i.line}")
-        if i.created_date_found:
-            print(f"{ANSI_BLU}Date{ANSI_RST} {i.created.date()} {i.created.time()}")
-        for l in i.content_lines:
-            print(f"{ANSI_BLU}┆{ANSI_RST} {l}")
+def should_skip(f: Path) -> bool:
+    if f.info.is_symlink() or f.is_dir():
+        return True
+    if not f.info.exists():
+        return True
+    if (  # is executable
+        f.stat().st_mode & stat.S_IXUSR
+        or f.stat().st_mode & stat.S_IXGRP
+        or f.stat().st_mode & stat.S_IXOTH
+        ):
+        return True
+    if any(n in f.absolute().as_uri() for n in BLACKLIST):
+        return True
+    return False
 
 def main() -> None:
-    files = collect_files_in_cd()
+    files = [path for path in CD.rglob("*") if not path.is_dir()]
     todo_items: list[Todo] = []
     for f in files:
-        if f.info.is_symlink():
+        if should_skip(f):
             continue
-        if f.is_dir():
-            continue
-        if not f.info.exists():
-            continue
-        if (
-                f.stat().st_mode & stat.S_IXUSR
-                or f.stat().st_mode & stat.S_IXGRP
-                or f.stat().st_mode & stat.S_IXOTH
-                ):
-            continue
+        todo_items += list(scan_file(f))
 
-        if not any(n in f.name for n in BLACKLIST):
-            todo_items += list(scan_file(f))
-
-    print_todo(todo_items)
+    if len(todo_items) < 1:
+        print("No TODO items were found.")
+        return
+    for i in todo_items:
+        i.print()
 
 if __name__ == "__main__":
     main()
