@@ -29,6 +29,7 @@ BLACKLIST: list[str] = [
         "CMakeFiles/",
         ".dSYM",
         "Cargo",
+        "env/",
         "package",
         "aarch",
         "x86_64",
@@ -75,11 +76,7 @@ def get_time_created(f: Path, l: int) -> timedelta | None:
                 check=True,
                 timeout=0.01,
                 )
-    except subprocess.TimeoutExpired:
-        return None
-    except subprocess.CalledProcessError:
-        return None
-    except UnicodeDecodeError:
+    except Exception:
         return None
     for line in process.stdout.splitlines():
         if line.startswith("author-time "):
@@ -136,23 +133,22 @@ class Todo:
             self.created = created
 
 def scan_file(f: Path, kw: str) -> Generator[Todo]:
-    lines = f.open(errors="ignore", encoding="utf-8").readlines()
-    for i, l in enumerate(lines):
-        if kw in l:
-            td: Todo = Todo(line=i, path=f)
-            cl = i
-            while cl < len(lines):
-                if lines[cl].strip() != "":
-                    td.content_lines.append(lines[cl].strip("\n"))
-                    cl += 1
-                    continue
-                break
-            yield td
+    with f.open(errors="ignore", encoding="utf-8") as file:
+        lines = file.readlines()
+        for i, l in enumerate(lines):
+            if kw in l:
+                td: Todo = Todo(line=i, path=f)
+                cl = i
+                while cl < len(lines):
+                    if lines[cl].strip() != "":
+                        td.content_lines.append(lines[cl].strip("\n"))
+                        cl += 1
+                        continue
+                    break
+                yield td
 
 def should_skip(f: Path) -> bool:
-    if f.info.is_symlink() or f.is_dir():
-        return True
-    if not f.info.exists():
+    if f.info.is_symlink() or f.is_dir() or not f.info.exists():
         return True
     if (  # is executable
         f.stat().st_mode & stat.S_IXUSR
@@ -226,7 +222,7 @@ def main() -> None:
         print("No tasks were found.")
         return
     for i in todo_items:
-        i.print(args=args)
+        i.print(args)
 
 if __name__ == "__main__":
     main()
